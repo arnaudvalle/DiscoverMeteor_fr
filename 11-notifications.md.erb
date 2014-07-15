@@ -3,21 +3,24 @@ title: Les Notifications
 slug: notifications
 date: 0011/01/01
 number: 11
-contents: Add a notifications collection to notify users of other user's actions.|Learn how to only share the relevant notifications with a given user.|Learn more about Meteor publications and subscriptions.
+points: 10
+photoUrl: http://www.flickr.com/photos/ikewinski/8719868039/
+photoAuthor: Mike Lewinski
+contents: Ajouter une collection notifications pour notifier les utilisateurs des actions des autres utilisateurs.|Apprendre comment partager uniquement les notifications pertinentes pour un utilisateur donné.|En apprendre plus sur les publications et les souscriptions.
 paragraphs: 25
 ---
 
-////
+Maintenant que les utilisateurs peuvent commenter les articles de chacun, il serait bien de les avertir qu'une conversation a commencé.
 
-////
+Pour ce faire, nous notifierons à l'auteur de l'article qu'il y a eu un commentaire, et nous lui fournirons un lien pour voir le commentaire.
 
-////
+C'est sur ce type de fonctionnalité que Meteor resplendit : parce que Meteor est en temps réel par défaut, nous afficherons ces notifications _instantanément_. Nous n'avons pas besoin d'attendre que l'utilisateur rafraîchisse la page ou vérifie par un quelconque moyen, nous pouvons simplement faire apparaître de nouvelles notifications sans même écrire de code spécial.
 
-### Creating notifications
+### Créer des notifications
 
-////
+Nous allons créer une notification quand quelqu'un commente sur vos articles. Dans le future, les notifications pourront être étendues pour couvrir beaucoup d'autres scénarii, mais pour l'instant ce sera suffisant pour garder les utilisateurs informés de ce qu'il se passe.
 
-////
+Créons notre collection `Notifications`, ainsi qu'une fonction `createCommentNotification` qui insèrera une notification correspondante pour chaque nouveau commentaire sur un de vos articles :
 
 ~~~js
 Notifications = new Meteor.Collection('notifications');
@@ -41,11 +44,11 @@ createCommentNotification = function(comment) {
 ~~~
 <%= caption "collections/notifications.js" %>
 
-////
+Comme les articles ou commentaires, cette collection `Notifications` sera partagée côté client et serveur. Comme nous avons besoin de mettre à jour les notifications une fois que l'utilisateur les a vues, nous autorisons également les mises à jours, en s'assurant comme d'habitude de bien limiter les permissions aux propres données de l'utilisateur.
 
-////
+Nous avons également créé une simple fonction qui surveille l'article que l'utilisateur commente, détermine qui devrait être notifié à ce moment, et insère une nouvelle notification.
 
-////
+Nous créons déjà des commentaires dans une méthode côté serveur, donc nous pouvons juste compléter cette méthode pour appeler notre fonction. Nous remplacerons `return Comments.insert(comment);` par `comment._id = Comments.insert(comment)` afin de sauvegarder l'`_id` du commentaire nouvellement créé dans une variable, puis appelerons notre fonction `createCommentNotification` :
 
 ~~~js
 Comments = new Meteor.Collection('comments');
@@ -58,7 +61,7 @@ Meteor.methods({
     // create the comment, save the id
     comment._id = Comments.insert(comment);
     
-    // now create a notification, informing the user that there's been a comment
+    // maintenant créez une notification, en informant l'utilisateur qu'il y a eu un commentaire
     createCommentNotification(comment);
     
     return comment._id;
@@ -68,7 +71,7 @@ Meteor.methods({
 <%= caption "collections/comments.js" %>
 <%= highlight "8~14" %>
 
-////
+Publions également les notifications, et souscrivons-y coté client :
 
 ~~~js
 // [...]
@@ -91,11 +94,11 @@ Router.configure({
 <%= caption "lib/router.js" %>
 <%= highlight "5" %>
 
-<%= commit "11-1", "Added basic notifications collection." %>
+<%= commit "11-1", "Ajout collection notifications." %>
 
-### Displaying Notifications
+### Affichage des notifications
 
-////
+Maintenant nous pouvons continuer et ajouter une liste de notifications à l'en-tête.
 
 ~~~html
 <template name="header">
@@ -111,7 +114,7 @@ Router.configure({
         <ul class="nav">
           {{#if currentUser}}
             <li>
-              <a href="{{pathFor 'postSubmit'}}">Submit Post</a>
+              <a href="{{pathFor 'postSubmit'}}">Soumettre l'article</a>
             </li>
             <li class="dropdown">
               {{> notifications}}
@@ -129,7 +132,7 @@ Router.configure({
 <%= caption "client/views/includes/header.html" %>
 <%= highlight "12~19" %>
 
-////
+Et créer les modèles de `notifications` et `notification` (ils partageront un même fichier `notifications.html`) :
 
 ~~~html
 <template name="notifications">
@@ -154,16 +157,16 @@ Router.configure({
 <template name="notification">
   <li>
     <a href="{{notificationPostPath}}">
-      <strong>{{commenterName}}</strong> commented on your post
+      <strong>{{commenterName}}</strong> a commenté votre article
     </a>
   </li>
 </template>
 ~~~
 <%= caption "client/views/notifications/notifications.html" %>
 
-////
+Nous pouvons voir que l'idée est de fournir dans chaque notification un lien vers l'article qui a été commenté, et le nom de l'utilisateur qui l'a commenté.
 
-////
+Ensuite, nous avons besoin de nous assurer que nous sélectionnons la bonne liste de notifications dans notre manager, et mettons à jour les notifications comme "lues" quand l'utilisateur clique sur le lien vers lequel elles pointent.
 
 ~~~js
 Template.notifications.helpers({
@@ -189,35 +192,35 @@ Template.notification.events({
 ~~~
 <%= caption "client/views/notifications/notifications.js" %>
 
-<%= commit "11-2", "Display notifications in the header." %>
+<%= commit "11-2", "Afficher des notifications dans l'en-tête." %>
 
-////
+Vous pouvez penser que les notifications ne sont pas si différentes des erreurs, et c'est vrai que leur structure est très similaire. Il y a néanmoins une différence clé: nous avons créé une collection client / serveur synchronisée. Cela signifie que nos notifications sont *persistantes* et, tant que nous gardons le même compte utilisateur, survivront au rafraîchissement des navigateurs et des différents appareils.
 
-////
+Essayez-le : ouvrez un deuxième navigateur (disons Firefox), créez un nouveau compte utilisateur, et commentez sur un article que vous avez créé avec votre compte utilisateur principal (que vous avez laissé ouvert dans Chrome). Vous devriez voir apparaître quelque chose comme ça :
 
-<%= screenshot "11-1", "Displaying notifications." %>
+<%= screenshot "11-1", "Afficher des notifications." %>
 
-### Controlling access to notifications
+### Controller l'accès aux notifications
 
-////
+Les notifications fonctionnent bien. Cependant, il y a un petit problème : nos notifications sont publiques.
 
-////
+Si vous avez encore votre deuxième navigateur ouvert, essayez d’exécuter le code suivant dans une console navigateur :
 
 ~~~js
 ❯ Notifications.find().count();
 1
 ~~~
-<%= caption "Browser console" %>
+<%= caption "Console du navigateur" %>
 
-////
+Ce nouvel utilisateur (celui qui a *commenté*) ne devrait pas avoir de notifications. La notification qu'il voit dans la collection `Notifications` appartient en fait à notre utilisateur original.
 
-////
+En marge de ces potentiels problèmes de confidentialité, nous ne pouvons pas nous permettre d'avoir toutes les notifications des utilisateurs chargées dans tous les navigateurs des autres utilisateurs. Sur un assez gros site, cela pourrait surcharger la mémoire disponible du navigateur et faire apparaître des sérieux problèmes de performance.
 
-////
+Nous corrigeons ce problème avec les **publications**. Nous pouvons utiliser nos publications pour spécifier précisément quelle partie de notre collection nous voulons partager dans chaque navigateur.
 
-////
+Pour accomplir cela, nous avons besoin de retourner un curseur différent dans notre publication de `Notifications.find()`. Plus exactement, nous voulons retourner un curseur qui correspond aux notifications de l'utilisateur courant. 
 
-////
+Faire cela est assez direct, puisqu' une fonction `publish` a l'`id` de l'utilisateur courant disponible via `this.userdId` :
 
 ~~~js
 Meteor.publish('notifications', function() {
@@ -226,22 +229,22 @@ Meteor.publish('notifications', function() {
 ~~~
 <%= caption "server/publications.js" %>
 
-<%= commit "11-3", "Only sync notifications that are relevant to the user." %>
+<%= commit "11-3", "Synchroniser uniquement les notifications pertinantes pour l'utilisateur courant." %>
 
-////
+Maintenant, si nous vérifions dans nos deux fenêtres de navigateur, nous devrions voir deux collections de notifications différentes :
 
 ~~~js
 ❯ Notifications.find().count();
 1
 ~~~
-<%= caption "Browser console (user 1)" %>
+<%= caption "Console du navigateur (utilisateur 1)" %>
 
 ~~~js
 ❯ Notifications.find().count();
 0
 ~~~
-<%= caption "Browser console (user 2)" %>
+<%= caption "Console du navigateur (utilisateur 2)" %>
 
-////
+En fait, la liste de Notifications devrait même changer selon que vous authentifiez et vous déconnectiez de votre application. Tout cela parce que les publications sont re-publiées automatiquement quand le compte utilisateur change.
 
-////
+Notre application devient de plus en plus fonctionnelle, et à mesure que des utilisateurs s'inscrivent et ajoutent des liens nous courons le risque de finir avec une page d'accueil sans fin. Nous allons nous occuper de ça dans le prochain chapitre en implémentant une pagination.
