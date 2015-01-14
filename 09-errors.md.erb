@@ -1,4 +1,4 @@
----
+------
 title: Erreurs
 slug: errors
 date: 0009/01/01
@@ -6,24 +6,21 @@ number: 9
 points: 10
 photoUrl: http://www.flickr.com/photos/ikewinski/9413892879/
 photoAuthor: Mike Lewinski
-contents: Créer un meilleur mécanisme pour afficher les erreurs et les messages.|Apprendre à utiliser `Template.rendered` pour savoir quand un utilisateur a vu une erreur.|Utiliser un filtre au niveau du routeur pour s'assurer que les erreurs ont été vues une fois.
+contents: Créer un meilleur mécanisme pour afficher les erreurs et les messages.|Implémenter une validation de formulaire plus stricte|Ajouter un rapport d'erreurs en ligne à nos formulaires
 paragraphs: 31
 ---
 
-En utilisant simplement la boite de dialogue de navigateur standard `alert()` pour avertir l'utilisateur quand il y a un problème avec l'envoi de leur formulaire n'est pas très satisfaisant, et ce n'est clairement pas fait pour une bonne UX (User Experience). Nous pouvons faire mieux.
+Simplement utiliser la boite de dialogue de navigateur standard `alert()` pour avertir l'utilisateur quand il y a un problème avec l'envoi de leur formulaire n'est pas très satisfaisant, et ce n'est clairement pas fait pour une expérience utilisateur. Nous pouvons faire mieux.
 
-A la place, construisons un mécanisme de rapport d'erreurs plus versatile
- qui fera un meilleur travail pour prévenir l'utilisateur de ce qu'il se passe sans casser son processus.
+A la place, construisons un mécanisme de rapport d'erreurs plus versatile qui préviendra mieux l'utilisateur de ce qu'il se passe sans l'interrompre.
 
-### Présenter les Collections Locales
+Nous allons implémenter un système simple qui affiche les nouvelles erreurs dans le coin supérieur droit de la fenêtre, semblable à l'application populaire Mac OS [Growl](http://growl.info/). 
 
-Nous allons implémenter un simple système qui conservera une trace de quelles erreurs un utilisateur a déjà vues et afficher les nouvelles dans une zone "flash" du site. Ce pattern UX est utile quand nous voulons informer un utilisateur que quelque chose s'est passé sans interrompre son processus de travail.
+### Présentation des Collections Locales
 
-Ce que nous allons créer est similaire aux messages flash qu'on trouve souvent dans les applications Ruby on Rails, mais c'est plus subtile car c'est implémenté côté client et que l'on sait quand un utilisateur a vu un message.
+Pour commencer, nous devons créer une collection dans laquelle nous stockerons nos erreurs. Sachant que les erreurs sont seulement pertinentes pour la session en cours et n'ont besoin d'être persistantes en aucun cas, nous allons faire quelque chose de nouveau, et créer une *collection locale*. Cela signifie que la collection `Errors` existera uniquement *dans le navigateur*, et ne fera aucune tentative de synchronisation avec le serveur.
 
-Pour commencer, nous créons une collection pour stocker nos erreurs. Etant donné que les erreurs sont seulement pertinantes pour la session courante et n'ont pas besoin d'être persistantes dans d'autres cas, nous allons faire quelque chose de nouveau, et créer une _collection locale_. Cela signifie que la collection `Errors` existera seulement dans le navigateur, et ne fera aucune tentative de synchronisation avec le serveur.
-
-Pour terminer ça, nous créons simplement l'erreur dans un fichier client-seulement, avec le nom de collection configuré à `null`. Nous créons une fonction `throwError` qui insère simplement une erreur dans notre nouvelle collection :
+Pour accomplir cela, nous créons l'erreur dans le dossier `client` (pour faire de la collection une collection cliente uniquement), avec son nom de collection MongoDB configuré à `null` (puisque les données de cette collection ne seront jamais sauvegardées dans la base de donnée côté serveur) :
 
 ~~~js
 // Collection Locale (client-seulement)
