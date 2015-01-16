@@ -107,6 +107,20 @@ throwError("I'm an error!");
 
 <%= commit "9-1", "Rapport d'erreur basique." %>
 
+<% note do %>
+
+### Deux Types d'Erreur
+
+A ce stade, il est important de faire la distinction entre les erreurs au niveau de l'application (“app-level”) de celles au niveau du code (“code-level”).
+
+Les erreurs au niveau de l'application (**app-level**) sont généralement déclenchées par l'utilisateur, et l'on peut agir sur celles-ci. Ces erreurs comprennent notamment les erreurs de validation, les erreurs de permission, les erreurs de type “introuvables” et ainsi de suite. Ce sont le genre d'erreurs que l'on veut montrer à l'utilisateur pour l'aider à régler tout problème rencontré.
+
+Les erreurs au niveau du code (**code-level**), de leur côté, sont déclenchées de manière inattendue par de réels bugs dans votre code, and vous ne voulez probablement *pas* les afficher à vos utilisateurs directement, mais plutôt d'en garder une trace avec un service tiers de suivi des erreurs (tel que [Kadira](http://kadira.io)). 
+
+Dans ce chapitre, nous nous concentrerons sur le premier type d'erreur, pas sur l'enregistrement des bugs. 
+
+<% end %>
+
 ### Créer des erreurs
 
 Nous savons comment afficher des erreurs, mais nous avons encore besoin d'en créer quelques unes avant d'en voir. Les erreurs sont la plupart du temps déclenchées par les utilisateurs entrant un nouveau contenu, donc nous allons vérifier les erreurs dans notre callback de création d'article, et afficher le message pour toutes les erreurs qui surgissent.
