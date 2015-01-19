@@ -117,51 +117,111 @@ Les erreurs au niveau de l'application (**app-level**) sont généralement décl
 
 Les erreurs au niveau du code (**code-level**), de leur côté, sont déclenchées de manière inattendue par de réels bugs dans votre code, and vous ne voulez probablement *pas* les afficher à vos utilisateurs directement, mais plutôt d'en garder une trace avec un service tiers de suivi des erreurs (tel que [Kadira](http://kadira.io)). 
 
-Dans ce chapitre, nous nous concentrerons sur le premier type d'erreur, pas sur l'enregistrement des bugs. 
+Dans ce chapitre, nous nous concentrerons sur le premier type d'erreur, pas sur le suivi des bugs. 
 
 <% end %>
 
 ### Créer des erreurs
 
-Nous savons comment afficher des erreurs, mais nous avons encore besoin d'en créer quelques unes avant d'en voir. Les erreurs sont la plupart du temps déclenchées par les utilisateurs entrant un nouveau contenu, donc nous allons vérifier les erreurs dans notre callback de création d'article, et afficher le message pour toutes les erreurs qui surgissent.
-
-En plus, si nous obtenons une erreur `302` (laquelle indique que l'article avec la même URL existe déjà), nous redirigerons l'utilisateur vers l'article existant. Nous obtenons l'`id` de l'article existant depuis `error.details` (souvenez-vous que nous passons l'`id` de cet article comme troisième argument `details` de notre classe `Error` dans le chapitre 7).
+Nous savons désormais comment afficher des erreurs, mais encore faut-il en déclencher une avant de voir quoi que ce soit. En fait, nous avons déjà implémenté un bon scénario pour une erreur: notre avertissement lors d'un article doublon. Nous remplaçerons simplement les `alert` dans `postSubmit` par la nouvelle fonction `throwError` que nous venons de mettre en place:
 
 ~~~js
 Template.postSubmit.events({
   'submit form': function(e) {
     e.preventDefault();
-
+    
     var post = {
       url: $(e.target).find('[name=url]').val(),
-      title: $(e.target).find('[name=title]').val(),
-      message: $(e.target).find('[name=message]').val()
-    }
-
-    Meteor.call('post', post, function(error, id) {
-      if (error) {
-        // Afficher l'erreur à l'utilisateur
-        throwError(error.reason);
-
-        if (error.error === 302)
-          Router.go('postPage', {_id: error.details})
-      } else {
-        Router.go('postPage', {_id: id});
-      }
+      title: $(e.target).find('[name=title]').val()
+    };
+    
+    Meteor.call('postInsert', post, function(error, result) {
+      // display the error to the user and abort
+      if (error)
+        return throwError(error.reason);
+      
+      // show this result but route anyway
+      if (result.postExists)
+        throwError('This link has already been posted');
+    
+      Router.go('postPage', {_id: result._id});  
     });
   }
 });
 ~~~
-<%= caption "client/views/posts/post_submit.js" %>
-<%= highlight "12~14, 16~21" %>
+<%= caption "client/templates/posts/post_submit.js" %>
+<%= highlight "13,17" %>
+
+Tant que nous y sommes, nous allons faire la même chose pour `postEdit` :
+
+~~~js
+Template.postEdit.events({
+  'submit form': function(e) {
+    e.preventDefault();
+    
+    var currentPostId = this._id;
+    
+    var postProperties = {
+      url: $(e.target).find('[name=url]').val(),
+      title: $(e.target).find('[name=title]').val()
+    }
+    
+    Posts.update(currentPostId, {$set: postProperties}, function(error) {
+      if (error) {
+        // display the error to the user
+        throwError(error.reason);
+      } else {
+        Router.go('postPage', {_id: currentPostId});
+      }
+    });
+  },
+  //...
+});
+~~~
+<%= caption "client/templates/posts/post_edit.js" %>
+<%= highlight "15" %>
 
 <%= commit "9-2", "Utilisation du rapport d'erreurs." %>
 
-Essayez : tentez de créer un article et entrez une URL `http://meteor.com`. Comme cette URL est déjà attachée à un article dans la préinstallation, vous devriez voir :
+Essayez par vous même : tentez de créer un article et entrez l'adresse `http://meteor.com`. Comme cette adresse est déjà attachée à un article dans l'installation, vous devriez voir :
 
-<%= screenshot "9-1", "Déclencher une erreur" %>
+<%= screenshot "9-2", "Déclencher une erreur" %>
 
-### Acquitter les erreurs
+### Effacer les Erreurs
+
+
+Vous noterez que les messages d'erreur disparaissent par eux-même après quelques secondes. Cela est en fait dû à un peu de CSS magique inclus dans la feuille de style que nous avons ajouté au tout début de ce livre :
+
+~~~css
+@keyframes fadeOut {
+  0% {opacity: 0;}
+  10% {opacity: 1;}
+  90% {opacity: 1;}
+  100% {opacity: 0;}
+}
+
+//...
+
+.alert {
+  animation: fadeOut 2700ms ease-in 0s 1 forwards;
+  //...
+}
+~~~
+<%= caption "client/stylesheets/style.css" %>
+
+Nous définissons une animation CSS `fadeOut` qui précise quatre images clé pour la propriété opacité (à 0%, 10%, 90%, et 100% de la durée totale de l'animation) et appliquons cette animation à la classe `.alert`.
+
+L'animation s'executera pendant 2700 millisecondes au total, utilisera l'équation de timing `ease-in`, s'executera avec un délai de 0 secondes, une seule fois, et finalement restera sur la dernière image clé lorsqu'elle est terminée. 
+
+
+
+
+
+
+
+
+
+
 
 Si vous cliquez sur le bouton fermer de l'erreur, vous verrez l'erreur disparaître, parce que ce bouton fermer déclenche le JavaScript embarqué de Twitter Bootstrap.
 
