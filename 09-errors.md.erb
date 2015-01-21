@@ -189,7 +189,6 @@ Essayez par vous même : tentez de créer un article et entrez l'adresse `http:/
 
 ### Effacer les Erreurs
 
-
 Vous noterez que les messages d'erreur disparaissent par eux-même après quelques secondes. Cela est en fait dû à un peu de CSS magique inclus dans la feuille de style que nous avons ajouté au tout début de ce livre :
 
 ~~~css
@@ -213,9 +212,25 @@ Nous définissons une animation CSS `fadeOut` qui précise quatre images clé po
 
 L'animation s'executera pendant 2700 millisecondes au total, utilisera l'équation de timing `ease-in`, s'executera avec un délai de 0 secondes, une seule fois, et finalement restera sur la dernière image clé lorsqu'elle est terminée. 
 
+<% note do %>
 
+### Animations contre Animations
 
+Vous vous demandez peut-être pourquoi nous utilisons des animations CSS (qui sont prédeterminées et en dehors du contrôle de notre application), au lieu d'animations controllées par Meteor lui-même.
 
+Bien que Meteor offre une aide à l'insertion d'animations, nous voulions que ce chapitre soit focalisé sur les erreurs. Nous utiliserons donc pour l'instant des animations CSS “bêtes” et garderons les choses plus sophistiquées pour le chapitre Animations.
+
+<% end %>
+
+Cela fonctionne bien, mais si vous déclenchez plusieurs erreurs (en soumettant le même lien trois fois par exemple) vous remarquerez qu'elles s'empilerent les unes au dessus des autres :
+
+<%= screenshot "9-3", "Débordement de pile." %>
+
+Et cela parce que alors que les élements `.alert` disparaissent *visuellement*, ils sont en fait toujours présents dans le DOM. Nous devons régler cela.
+
+C'est exactement dans ce genre de situation que Meteor brille. Puisque la collection `Errors' est réactive, tout ce que nous devons faire pour nous débarasser de ces vieilles erreurs est de les supprimer de la collection!
+
+Nous utiliserons `Meteor.setTimeout` pour spécifier une fonction callback à être exécutée après que le timeout (dans ce cas, 3000 millisecondes) expire.
 
 
 
