@@ -1,0 +1,224 @@
+---
+title: Créer un Package Meteor
+slug: creating-a-meteor-package
+date: 0009/01/02
+number: 9.5
+points: 10
+sidebar: true
+photoUrl: http://www.flickr.com/photos/rxb/7779426142/
+photoAuthor: Richard
+contents: Écrire un paquet in-app local.|Écrire des tests pour vos paquets.|Délivrer votre paquet sur Atmosphere.
+paragraphs: 22
+---
+
+Nous avons construit un pattern réutilisable avec notre travail sur les erreurs, donc pourquoi ne pas l'empaqueter dans un paquet intelligent et le partager avec le reste de la communauté Meteor ?
+
+Pour être prêts, nous devons nous assurer d'avoir un compte développeur Meteor. Vous pouvez revendiquer le votre sur [meteor.com](meteor.com), mais il est fort probable que vous l'ayez déjà fait quand vous vous êtes inscrits pour le livre ! Dans tous les cas, vous devez connaître votre nom d'utilisateur car nous allons l'utiliser intensivement dans ce chapitre.
+
+Nous allons utiliser le nom d'utilisateur `tmeasday` dans ce chapitre -- vous pouvez substituez le votre à celui-ci.
+
+Premièrement, nous avons besoin de créer une structure pour notre paquet. Nous pouvons utiliser la commande `meteor create --package tmeasday:errors` pour cela. Notez que Meteor a créé un dossier nommé `packages/tmeasday:errors/`, avec quelques fichiers à l'intérieur. Nous allons commencer par éditer `package.js`, le fichier qui informe à Meteor comment il doit utiliser le paquet, et quels objets et fonctions il a besoin d'exporter.
+
+~~~js
+Package.describe({
+  name: "tmeasday:errors",
+  summary: "A pattern to display application errors to the user",
+  version: "1.0.0"
+});
+
+Package.onUse(function (api, where) {
+  api.versionsFrom('0.9.0');
+
+  api.use(['minimongo', 'mongo-livedata', 'templating'], 'client');
+  
+  api.addFiles(['errors.js', 'errors_list.html', 'errors_list.js'], 'client');
+  
+  if (api.export)
+    api.export('Errors');
+});
+~~~
+<%= caption "packages/tmeasday:errors/package.js" %>
+
+Quand on développe un paquet pour un usage destiné au monde réel, c'est une bonne pratique de remplir la section `git` du bloc `Package.describe` avec les URL Git de votre repo (comme `https://github.com/tmeasday/meteor-errors.git`). De cette manière, les utilisateurs peuvent lire le code source, et (en supposant que vous utilisez GitHub) le lisez-moi (readme) de votre paquet apparaîtra sur Atmosphere.
+
+Ajoutons trois fichiers au paquet. Nous pouvons récupérer ces trois fichiers de Microscope sans trop de changements à part pour certains espaces de noms propres et une API légèrement plus claire :
+
+~~~js
+Errors = {
+  // Collection local (client seulement)
+  collection: new Mongo.Collection(null),
+  
+  throw: function(message) {
+    Errors.collection.insert({message: message, seen: false})
+  },
+  clearSeen: function() {
+    Errors.collection.remove({seen: true});
+  }
+};
+
+~~~
+<%= caption "packages/tmeasday:errors/errors.js" %>
+
+~~~html
+<template name="meteorErrors">
+  <div class="errors">
+    {{#each errors}}
+      {{> meteorError}}
+    {{/each}}
+  </div>
+</template>
+
+<template name="meteorError">
+  <div class="alert alert-danger" role="alert">
+    <button type="button" class="close" data-dismiss="alert">&times;</button>
+      {{message}}
+  </div>
+</template>
+~~~
+<%= caption "packages/tmeasday:errors/errors_list.html" %>
+
+~~~js
+Template.meteorErrors.helpers({
+  errors: function() {
+    return Errors.collection.find();
+  }
+});
+
+Template.meteorError.rendered = function() {
+  var error = this.data;
+  Meteor.setTimeout(function () {
+    Errors.collection.remove(error._id);
+  }, 3000);
+};
+~~~
+<%= caption "packages/tmeasday:errors/errors_list.js" %>
+
+### Tester le paquer avec Microscope
+
+Nous allons tester maintenant les choses localement avec Microscope pour nous assurer que notre code modifié fonctionne. Pour relier le paquet dans notre projet, nous exécutons `meteor add tmeasday:errors`. Ensuite, nous avons besoin de supprimer les fichiers existants qui ont été rendu redondants par le nouveau paquet :
+
+~~~bash
+rm client/helpers/errors.js
+rm client/templates/includes/errors.html
+rm client/templates/includes/errors.js
+~~~
+<%= caption "Suppression des vieux fichiers via la console bash" %>
+
+Une autre chose que nous avons besoin de faire est d'effectuer quelques mises à jour mineures pour utiliser l'API correctement :
+
+~~~html
+  {{> header}}
+  {{> meteorErrors}}
+~~~
+<%= caption "client/templates/application/layout.html" %>
+
+~~~js
+Meteor.call('postInsert', post, function(error, result) {
+  if (error) {
+    // affiche l'erreur à l'utilisateur
+    Errors.throw(error.reason);
+
+~~~
+<%= caption "client/templates/posts/post_submit.js" %>
+
+~~~js
+Posts.update(currentPostId, {$set: postProperties}, function(error) {
+  if (error) {
+    // Afficher l'erreur à l'utilisateur
+    Errors.throw(error.reason);
+    
+    // affiche ce résultat mais route quand même
+    if (result.postExists)
+      Errors.throw('Ce lien à déjà été utilisé');   
+~~~
+<%= caption "client/templates/posts/post_edit.js" %>
++<%= highlight "4,8" %>
+
+<%= scommit "9-5-1", "Créer des erreurs basiques et les relier." %>
+
+Une fois que ces changements ont été faits, nous devrions récupérer notre comportement original pré-paquet.
+
+### Ecrire des Tests
+
+La première étape quand on développe un paquet est de le tester dans une application, mais la suivante est d'écrire une suite de test qui teste proprement le comportement du paquet. Meteor propose Tinytest (un testeur de paquet intégré), qui rend facile l'exécution de ce type de tests et permet de rester serein quand on partage notre paquet avec les autres.
+
+Créons un fichier de test qui utilise Tinytest pour exécuter des tests sur le code du paquet errors :
+
+~~~js
+Tinytest.add("Errors - collection", function(test) {
+  test.equal(Errors.collection.find({}).count(), 0);
+
+  Errors.throw('A new error!');
+  test.equal(Errors.collection.find({}).count(), 1);
+
+  Errors.collection.remove({});
+});
+
+Tinytest.addAsync("Errors - template", function(test, done) {
+  Errors.throw('A new error!');
+  test.equal(Errors.collection.find({}).count(), 1);
+
+  // render the template
+  UI.insert(UI.render(Template.meteorErrors), document.body);
+
+  Meteor.setTimeout(function() {
+    test.equal(Errors.collection.find({}).count(), 0);
+    done();
+  }, 3500);
+});
+~~~
+<%= caption "packages/tmeasday:errors/errors_tests.js" %>
+
+
+Dans ces tests nous vérifions que les fonctions basiques `Meteor.Errors` fonctionnent, ainsi qu'une deuxième vérification que le code `rendered` dans le template fonctionne encore.
+
+Nous ne couvrirons pas les spécificités d'écriture des tests de paquets Meteor ici (comme l'API n'est pas encore finalisée et hautement changeante), mais heureusement son fonctionnement est assez bien expliqué.
+
+Pour dire à Meteor comment exécuter les tests dans `package.js`, utilisez le code suivant :
+
+~~~js
+Package.onTest(function(api) {
+  api.use('tmeasday:errors', 'client');
+  api.use(['tinytest', 'test-helpers'], 'client');  
+  
+  api.addFiles('errors_tests.js', 'client');
+});
+~~~
+<%= caption "packages/tmeasday:errors/package.js" %>
+
+<%= scommit "9-5-2", "Ajout des tests du paquet." %>
+
+Puis nous pouvons exécuter les tests avec :
+
+~~~bash
+meteor test-packages tmeasday:errors
+~~~
+<%= caption "Terminal" %>
+
+<%= screenshot "s7-1", "Passer tous les tests" %>
+
+### Déployer le paquet
+
+Maintenant, nous voulons délivrer le paquet et le rendre disponible à tout le monde. Nous faisons ça en le mettant sur le serveur de paquets de Meteor, et en le déployant sur Atmopshere.
+
+Heureusement, c'est très facile. Il suffit de se rendre dans le dossier du paquet (via `cd`), et de lancer `meteor publish --create` :
+
+~~~bash
+cd packages/tmeasday:errors
+meteor publish --create
+~~~
+<%= caption "Terminal" %>
+
+Maintenant que le paquet est déployé, nous pouvons le supprimer du projet puis le rajouter directement :
+
+~~~bash
+rm -r packages/errors
+meteor add tmeasday:errors
+~~~
+<%= caption "Terminal (lancé depuis la racine de l'application)" %>
+
+<%= scommit "9-5-4", "Paquet supprimé du dossier de développement" %>
+
+Maintenant nous devrions voir Meteor télécharger notre paquet pour la toute première fois. Bien joué !
+
+Comme d'habitude avec les apartés, assurez-vous d'annuler les changements avant de continuer (ou sinon assurez-vous d'en tenir compte en suivant le reste du livre).

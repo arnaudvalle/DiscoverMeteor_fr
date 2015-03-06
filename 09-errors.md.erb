@@ -230,13 +230,26 @@ Et cela parce que alors que les élements `.alert` disparaissent *visuellement*,
 
 C'est exactement dans ce genre de situation que Meteor brille. Puisque la collection `Errors' est réactive, tout ce que nous devons faire pour nous débarasser de ces vieilles erreurs est de les supprimer de la collection!
 
-Nous utiliserons `Meteor.setTimeout` pour spécifier une fonction callback à être exécutée après que le timeout (dans ce cas, 3000 millisecondes) expire.
+Nous utiliserons `Meteor.setTimeout` pour spécifier une fonction callback à être exécutée à la fin du timeout (dans ce cas, 3000 millisecondes).
 
+~~~js
+Template.errors.helpers({
+  errors: function() {
+    return Errors.find();
+  }
+});
 
+Template.error.rendered = function() {
+  var error = this.data;
+  Meteor.setTimeout(function () {
+    Errors.remove(error._id);
+  }, 3000);
+};
+~~~
+<%= caption "client/templates/includes/errors.js" %>
+<%= highlight "7~12" %>
 
-
-
-
+<%= commit "9-3", "Effacer les erreurs après 3 secondes." %>
 
 Si vous cliquez sur le bouton fermer de l'erreur, vous verrez l'erreur disparaître, parce que ce bouton fermer déclenche le JavaScript embarqué de Twitter Bootstrap.
 
